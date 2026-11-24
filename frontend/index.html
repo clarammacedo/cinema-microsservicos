@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rede de Cinemas</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #f4f4f7; color: #222; }
+  header { background: #1f3a8a; color: #fff; padding: 14px 24px; }
+  header h1 { margin: 0; font-size: 22px; }
+  nav { background: #e5e7f0; padding: 8px 24px; }
+  nav button { margin-right: 6px; }
+  main { padding: 16px 24px; max-width: 1000px; }
+  section { display: none; background: #fff; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+  section.ativa { display: block; }
+  h2 { margin-top: 0; }
+  fieldset { margin-bottom: 14px; border: 1px solid #ccc; }
+  label { display: inline-block; margin: 4px 10px 4px 0; }
+  input, select, textarea { padding: 4px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 14px; }
+  th { background: #f0f0f5; }
+  #mensagem { padding: 8px 24px; min-height: 20px; font-weight: bold; }
+  .ok { color: #166534; } .erro { color: #b91c1c; }
+  .tela { text-align: center; background: #555; color: #fff; padding: 4px; margin: 8px 0 12px; border-radius: 4px; }
+  .fileira { white-space: nowrap; }
+  .assento { width: 38px; margin: 2px; padding: 4px 0; font-size: 12px; cursor: pointer; border: 1px solid #888; border-radius: 4px; background: #bbf7d0; }
+  .assento.ocupado { background: #fca5a5; cursor: not-allowed; }
+  .assento.selecionado { background: #3b82f6; color: #fff; }
+  small { color: #666; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎬 Rede de Cinemas</h1>
+  <small style="color:#dbe2ff">Frontend único que acessa os microsserviços da equipe</small>
+</header>
+
+<nav>
+  <button onclick="mostrar('filmes')">Filmes</button>
+  <button onclick="mostrar('cinemas')">Cinemas e salas</button>
+  <button onclick="mostrar('sessoes')">Sessões</button>
+  <button onclick="mostrar('assentos')">Assentos</button>
+  <!-- Amanda e Edson: adicionem aqui os botões de Pedidos, Pagamentos, Fidelidade e Usuários -->
+</nav>
+
+<div id="mensagem"></div>
+
+<main>
+
+<!-- ================== FILMES ================== -->
+<section id="filmes">
+  <h2>Filmes <small>(Serviço de Filmes - Java)</small></h2>
+  <fieldset>
+    <legend id="tituloFormFilme">Adicionar filme</legend>
+    <input type="hidden" id="filmeId">
+    <label>Título <input id="filmeTitulo" size="30"></label>
+    <label>Gênero <input id="filmeGenero"></label>
+    <label>Duração (min) <input id="filmeDuracao" type="number" min="1" style="width:70px"></label>
+    <label>Classificação
+      <select id="filmeClassificacao">
+        <option value="0">Livre</option><option>10</option><option>12</option>
+        <option>14</option><option>16</option><option>18</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="filmeEmCartaz" checked> Em cartaz</label><br>
+    <label>Sinopse<br><textarea id="filmeSinopse" rows="2" cols="70"></textarea></label><br>
+    <button onclick="salvarFilme()">Salvar</button>
+    <button onclick="limparFormFilme()">Limpar</button>
+  </fieldset>
+
+  <label>Filtrar por gênero <input id="filtroGenero"></label>
+  <button onclick="listarFilmes()">Listar filmes</button>
+  <table>
+    <thead><tr><th>Id</th><th>Título</th><th>Gênero</th><th>Duração</th><th>Classif.</th><th>Em cartaz</th><th></th></tr></thead>
+    <tbody id="tabelaFilmes"></tbody>
+  </table>
+  <pre id="detalhesFilme" style="background:#f7f7f7;padding:8px"></pre>
+</section>
+
+<!-- ================== CINEMAS E SALAS ================== -->
+<section id="cinemas">
+  <h2>Cinemas e salas <small>(Serviço de Sessões - Java)</small></h2>
+  <fieldset>
+    <legend>Cadastrar cinema</legend>
+    <label>Nome <input id="cinemaNome"></label>
+    <label>Cidade <input id="cinemaCidade" value="Fortaleza"></label>
+    <label>Endereço <input id="cinemaEndereco" size="30"></label>
+    <button onclick="cadastrarCinema()">Cadastrar</button>
+  </fieldset>
+  <fieldset>
+    <legend>Cadastrar sala</legend>
+    <label>Cinema <select id="salaCinema"></select></label>
+    <label>Número <input id="salaNumero" type="number" min="1" style="width:60px"></label>
+    <label>Tipo
+      <select id="salaTipo"><option>2D</option><option>3D</option><option>IMAX</option><option>VIP</option></select>
+    </label>
+    <label>Fileiras <input id="salaFileiras" type="number" min="1" max="26" value="6" style="width:60px"></label>
+    <label>Assentos por fileira <input id="salaAssentos" type="number" min="1" max="40" value="10" style="width:60px"></label>
+    <button onclick="cadastrarSala()">Cadastrar</button>
+  </fieldset>
+  <table>
+    <thead><tr><th>Cinema</th><th>Cidade</th><th>Sala</th><th>Tipo</th><th>Capacidade</th></tr></thead>
+    <tbody id="tabelaSalas"></tbody>
+  </table>
+</section>
+
+<!-- ================== SESSÕES ================== -->
+<section id="sessoes">
+  <h2>Sessões <small>(Serviço de Sessões, que consulta o Serviço de Filmes)</small></h2>
+  <fieldset>
+    <legend>Criar sessão</legend>
+    <label>Filme <select id="sessaoFilme"></select></label>
+    <label>Sala <select id="sessaoSala"></select></label><br>
+    <label>Data e hora <input id="sessaoDataHora" type="datetime-local"></label>
+    <label>Idioma <select id="sessaoIdioma"><option>Dublado</option><option>Legendado</option></select></label>
+    <label>Formato <select id="sessaoFormato"><option>2D</option><option>3D</option></select></label>
+    <label>Preço (R$) <input id="sessaoPreco" type="number" step="0.01" min="0" value="30.00" style="width:80px"></label>
+    <button onclick="criarSessao()">Criar sessão</button>
+  </fieldset>
+  <label>Filtrar por data <input id="filtroData" type="date"></label>
+  <button onclick="listarSessoes()">Listar sessões</button>
+  <table>
+    <thead><tr><th>Id</th><th>Filme</th><th>Cinema / Sala</th><th>Início</th><th>Fim</th><th>Idioma</th><th>Formato</th><th>Preço</th><th></th></tr></thead>
+    <tbody id="tabelaSessoes"></tbody>
+  </table>
+</section>
+
+<!-- ================== ASSENTOS ================== -->
+<section id="assentos">
+  <h2>Assentos livres</h2>
+  <label>Sessão <select id="assentoSessao" onchange="verAssentos()"></select></label>
+  <button onclick="verAssentos()">Ver assentos</button>
+  <p id="resumoAssentos"></p>
+  <div class="tela">TELA</div>
+  <div id="mapaAssentos"></div>
+  <p>
+    <small>Verde = livre · Vermelho = ocupado · Azul = selecionado.
+    A reserva de verdade é feita pelo Serviço de Pedidos; o botão abaixo é só para testar.</small><br>
+    <label>Id do pedido (teste) <input id="pedidoTeste" value="TESTE-1"></label>
+    <button onclick="reservarTeste()">Reservar selecionados</button>
+    <button onclick="liberarTeste()">Liberar pedido</button>
+  </p>
+</section>
+
+</main>
+
+<script>
+// ======================================================================
+// CONFIGURAÇÃO: endereço de cada microsserviço
+// Localmente usa localhost; na nuvem, troque pelos links do Render.
+// ======================================================================
+const LOCAL = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+const API = {
+  filmes:  LOCAL ? "http://localhost:8081" : "https://SEU-filmes-service.onrender.com",
+  sessoes: LOCAL ? "http://localhost:8082" : "https://SEU-sessoes-service.onrender.com",
+  // pedidos, pagamentos (Edson - Python) e fidelidade, usuarios (Amanda - JavaScript) entram aqui
+};
+
+// Função que faz as chamadas HTTP (fetch) e trata erros
+async function chamar(url, metodo = "GET", corpo = null) {
+  const opcoes = { method: metodo, headers: { "Content-Type": "application/json" } };
+  if (corpo) opcoes.body = JSON.stringify(corpo);
+  let resposta;
+  try {
+    resposta = await fetch(url, opcoes);
+  } catch (e) {
+    throw new Error("Não foi possível conectar em " + url + " (o serviço está rodando?)");
+  }
+  if (resposta.status === 204) return null;
+  const dados = await resposta.json().catch(() => null);
+  if (!resposta.ok) {
+    let msg = (dados && dados.message) || ("Erro " + resposta.status);
+    if (dados && dados.errors) msg = dados.errors.map(e => e.defaultMessage).join("; ");
+    throw new Error(msg);
+  }
+  return dados;
+}
+
+function aviso(texto, erro = false) {
+  const m = document.getElementById("mensagem");
+  m.textContent = texto;
+  m.className = erro ? "erro" : "ok";
+}
+
+function mostrar(id) {
+  document.querySelectorAll("section").forEach(s => s.classList.remove("ativa"));
+  document.getElementById(id).classList.add("ativa");
+  aviso("");
+  if (id === "filmes") listarFilmes();
+  if (id === "cinemas") carregarCinemasESalas();
+  if (id === "sessoes") { carregarSelectsSessao(); listarSessoes(); }
+  if (id === "assentos") carregarSelectAssentos();
+}
+
+const v = id => document.getElementById(id).value;
+const classif = c => c === 0 ? "Livre" : c + " anos";
+const dataBR = iso => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const esc = t => String(t ?? "").replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+// ======================= FILMES =======================
+async function listarFilmes() {
+  try {
+    const genero = v("filtroGenero").trim();
+    const filmes = await chamar(API.filmes + "/filmes" + (genero ? "?genero=" + encodeURIComponent(genero) : ""));
+    document.getElementById("tabelaFilmes").innerHTML = filmes.map(f => `
+      <tr>
+        <td>${f.id}</td><td>${esc(f.titulo)}</td><td>${esc(f.genero)}</td>
+        <td>${f.duracao} min</td><td>${classif(f.classificacao)}</td><td>${f.emCartaz ? "Sim" : "Não"}</td>
+        <td><button onclick="detalhesFilme(${f.id})">Detalhes</button>
+            <button onclick="editarFilme(${f.id})">Editar</button></td>
+      </tr>`).join("");
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function detalhesFilme(id) {
+  try {
+    const f = await chamar(API.filmes + "/filmes/" + id);
+    document.getElementById("detalhesFilme").textContent = JSON.stringify(f, null, 2);
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function editarFilme(id) {
+  try {
+    const f = await chamar(API.filmes + "/filmes/" + id);
+    document.getElementById("filmeId").value = f.id;
+    document.getElementById("filmeTitulo").value = f.titulo;
+    document.getElementById("filmeGenero").value = f.genero;
+    document.getElementById("filmeDuracao").value = f.duracao;
+    document.getElementById("filmeClassificacao").value = f.classificacao;
+    document.getElementById("filmeSinopse").value = f.sinopse || "";
+    document.getElementById("filmeEmCartaz").checked = f.emCartaz;
+    document.getElementById("tituloFormFilme").textContent = "Atualizar filme #" + f.id;
+  } catch (e) { aviso(e.message, true); }
+}
+
+function limparFormFilme() {
+  ["filmeId", "filmeTitulo", "filmeGenero", "filmeDuracao", "filmeSinopse"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("filmeClassificacao").value = "0";
+  document.getElementById("filmeEmCartaz").checked = true;
+  document.getElementById("tituloFormFilme").textContent = "Adicionar filme";
+}
+
+async function salvarFilme() {
+  const id = v("filmeId");
+  const filme = {
+    titulo: v("filmeTitulo"),
+    genero: v("filmeGenero"),
+    duracao: Number(v("filmeDuracao")) || null,
+    classificacao: Number(v("filmeClassificacao")),
+    sinopse: v("filmeSinopse"),
+    emCartaz: document.getElementById("filmeEmCartaz").checked
+  };
+  try {
+    if (id) {
+      await chamar(API.filmes + "/filmes/" + id, "PUT", filme);
+      aviso("Filme atualizado!");
+    } else {
+      const novo = await chamar(API.filmes + "/filmes", "POST", filme);
+      aviso("Filme adicionado com id " + novo.id);
+    }
+    limparFormFilme();
+    listarFilmes();
+  } catch (e) { aviso(e.message, true); }
+}
+
+// ======================= CINEMAS E SALAS =======================
+async function carregarCinemasESalas() {
+  try {
+    const cinemas = await chamar(API.sessoes + "/cinemas");
+    document.getElementById("salaCinema").innerHTML =
+      cinemas.map(c => `<option value="${c.id}">${esc(c.nome)} (${esc(c.cidade)})</option>`).join("");
+    let linhas = "";
+    for (const c of cinemas) {
+      const salas = await chamar(API.sessoes + "/cinemas/" + c.id + "/salas");
+      if (salas.length === 0) linhas += `<tr><td>${esc(c.nome)}</td><td>${esc(c.cidade)}</td><td colspan="3">sem salas</td></tr>`;
+      salas.forEach(s => linhas += `<tr><td>${esc(c.nome)}</td><td>${esc(c.cidade)}</td><td>Sala ${s.numero}</td><td>${esc(s.tipo)}</td><td>${s.capacidade} lugares</td></tr>`);
+    }
+    document.getElementById("tabelaSalas").innerHTML = linhas;
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function cadastrarCinema() {
+  try {
+    const c = await chamar(API.sessoes + "/cinemas", "POST",
+      { nome: v("cinemaNome"), cidade: v("cinemaCidade"), endereco: v("cinemaEndereco") });
+    aviso("Cinema cadastrado com id " + c.id);
+    carregarCinemasESalas();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function cadastrarSala() {
+  try {
+    const s = await chamar(API.sessoes + "/cinemas/" + v("salaCinema") + "/salas", "POST", {
+      numero: Number(v("salaNumero")) || null,
+      tipo: v("salaTipo"),
+      fileiras: Number(v("salaFileiras")),
+      assentosPorFileira: Number(v("salaAssentos"))
+    });
+    aviso("Sala " + s.numero + " cadastrada com " + s.capacidade + " lugares");
+    carregarCinemasESalas();
+  } catch (e) { aviso(e.message, true); }
+}
+
+// ======================= SESSÕES =======================
+async function carregarSelectsSessao() {
+  try {
+    // Os filmes vêm do Serviço de Filmes...
+    const filmes = await chamar(API.filmes + "/filmes?emCartaz=true");
+    document.getElementById("sessaoFilme").innerHTML =
+      filmes.map(f => `<option value="${f.id}">${esc(f.titulo)} (${f.duracao} min)</option>`).join("");
+    // ...e as salas vêm do Serviço de Sessões
+    const cinemas = await chamar(API.sessoes + "/cinemas");
+    let opcoes = "";
+    for (const c of cinemas) {
+      const salas = await chamar(API.sessoes + "/cinemas/" + c.id + "/salas");
+      salas.forEach(s => opcoes += `<option value="${s.id}">${esc(c.nome)} - Sala ${s.numero} (${esc(s.tipo)})</option>`);
+    }
+    document.getElementById("sessaoSala").innerHTML = opcoes;
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function criarSessao() {
+  try {
+    const s = await chamar(API.sessoes + "/sessoes", "POST", {
+      filmeId: Number(v("sessaoFilme")) || null,
+      salaId: Number(v("sessaoSala")) || null,
+      dataHora: v("sessaoDataHora") || null,
+      idioma: v("sessaoIdioma"),
+      formato: v("sessaoFormato"),
+      preco: Number(v("sessaoPreco"))
+    });
+    aviso("Sessão " + s.id + " criada: " + s.tituloFilme + " em " + dataBR(s.dataHora));
+    listarSessoes();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function listarSessoes() {
+  try {
+    const data = v("filtroData");
+    const sessoes = await chamar(API.sessoes + "/sessoes" + (data ? "?data=" + data : ""));
+    document.getElementById("tabelaSessoes").innerHTML = sessoes.map(s => `
+      <tr>
+        <td>${s.id}</td><td>${esc(s.tituloFilme)}</td>
+        <td>${esc(s.sala.cinema.nome)} / Sala ${s.sala.numero}</td>
+        <td>${dataBR(s.dataHora)}</td><td>${dataBR(s.fim)}</td>
+        <td>${esc(s.idioma)}</td><td>${esc(s.formato)}</td>
+        <td>R$ ${Number(s.preco).toFixed(2)}</td>
+        <td><button onclick="abrirAssentos(${s.id})">Assentos</button></td>
+      </tr>`).join("");
+  } catch (e) { aviso(e.message, true); }
+}
+
+// ======================= ASSENTOS =======================
+let selecionados = new Set();
+
+async function carregarSelectAssentos(idEscolhido) {
+  try {
+    const sessoes = await chamar(API.sessoes + "/sessoes");
+    const sel = document.getElementById("assentoSessao");
+    sel.innerHTML = sessoes.map(s =>
+      `<option value="${s.id}">#${s.id} - ${esc(s.tituloFilme)} - ${dataBR(s.dataHora)} - Sala ${s.sala.numero}</option>`).join("");
+    if (idEscolhido) sel.value = idEscolhido;
+    if (sessoes.length) verAssentos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+function abrirAssentos(id) {
+  document.querySelectorAll("section").forEach(s => s.classList.remove("ativa"));
+  document.getElementById("assentos").classList.add("ativa");
+  carregarSelectAssentos(id);
+}
+
+async function verAssentos() {
+  const id = v("assentoSessao");
+  if (!id) return;
+  try {
+    const a = await chamar(API.sessoes + "/sessoes/" + id + "/assentos");
+    selecionados = new Set();
+    document.getElementById("resumoAssentos").textContent =
+      a.totalLivres + " livres de " + a.capacidade + " lugares";
+    const ocupados = new Set(a.ocupados);
+    let html = "";
+    for (let f = 0; f < a.fileiras; f++) {
+      const letra = String.fromCharCode(65 + f);
+      html += `<div class="fileira"><b style="display:inline-block;width:20px">${letra}</b>`;
+      for (let n = 1; n <= a.assentosPorFileira; n++) {
+        const cod = letra + n;
+        const oc = ocupados.has(cod);
+        html += `<button class="assento ${oc ? "ocupado" : ""}" ${oc ? "disabled" : ""} onclick="alternar(this,'${cod}')">${cod}</button>`;
+      }
+      html += "</div>";
+    }
+    document.getElementById("mapaAssentos").innerHTML = html;
+  } catch (e) { aviso(e.message, true); }
+}
+
+function alternar(botao, cod) {
+  if (selecionados.has(cod)) { selecionados.delete(cod); botao.classList.remove("selecionado"); }
+  else { selecionados.add(cod); botao.classList.add("selecionado"); }
+}
+
+async function reservarTeste() {
+  if (selecionados.size === 0) { aviso("Selecione pelo menos um assento", true); return; }
+  try {
+    await chamar(API.sessoes + "/sessoes/" + v("assentoSessao") + "/reservas", "POST",
+      { pedidoId: v("pedidoTeste"), assentos: [...selecionados] });
+    aviso("Assentos reservados: " + [...selecionados].join(", "));
+    verAssentos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function liberarTeste() {
+  try {
+    await chamar(API.sessoes + "/sessoes/" + v("assentoSessao") + "/reservas/" + encodeURIComponent(v("pedidoTeste")), "DELETE");
+    aviso("Assentos do pedido " + v("pedidoTeste") + " liberados");
+    verAssentos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+mostrar("filmes");
+</script>
+</body>
+</html>
