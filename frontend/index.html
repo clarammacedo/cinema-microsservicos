@@ -10,6 +10,9 @@
   header h1 { margin: 0; font-size: 22px; }
   nav { background: #e5e7f0; padding: 8px 24px; }
   nav button { margin-right: 6px; }
+  nav button.atual { font-weight: bold; background: #1f3a8a; color: #fff; }
+  header { position: relative; }
+  #servidor { position: absolute; right: 24px; top: 22px; color: #dbe2ff; font-size: 13px; }
   main { padding: 16px 24px; max-width: 1000px; }
   section { display: none; background: #fff; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
   section.ativa { display: block; }
@@ -35,15 +38,21 @@
 <header>
   <h1>🎬 Rede de Cinemas</h1>
   <small style="color:#dbe2ff">Frontend único que acessa os microsserviços da equipe</small>
+  <label id="servidor">Servidores:
+    <select id="modoServidor" onchange="trocarServidor(this.value)">
+      <option value="nuvem">Nuvem (Render)</option>
+      <option value="local">Local (localhost)</option>
+    </select>
+  </label>
 </header>
 
 <nav>
-  <button onclick="mostrar('filmes')">Filmes</button>
-  <button onclick="mostrar('cinemas')">Cinemas e salas</button>
-  <button onclick="mostrar('sessoes')">Sessões</button>
-  <button onclick="mostrar('assentos')">Assentos</button>
-  <button onclick="mostrar('usuarios')">Usuários</button>
-  <button onclick="mostrar('fidelidade')">Fidelidade</button>
+  <button onclick="irPara('filmes')">Filmes</button>
+  <button onclick="irPara('cinemas')">Cinemas e salas</button>
+  <button onclick="irPara('sessoes')">Sessões</button>
+  <button onclick="irPara('assentos')">Assentos</button>
+  <button onclick="irPara('usuarios')">Usuários</button>
+  <button onclick="irPara('fidelidade')">Fidelidade</button>
   <!-- Edson: adicione aqui os botões de Pedidos e Pagamentos -->
   <span id="statusLogin" style="float:right"></span>
 </nav>
@@ -213,9 +222,18 @@
 <script>
 // ======================================================================
 // CONFIGURAÇÃO: endereço de cada microsserviço
-// Localmente usa localhost; na nuvem, troque pelos links do Render.
+// O seletor "Servidores" no topo escolhe entre a nuvem (Render) e o localhost.
+// Padrão = nuvem, assim a página funciona mesmo sem rodar os serviços no computador.
 // ======================================================================
-const LOCAL = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+let modoServidor = "nuvem";
+try { modoServidor = localStorage.getItem("servidor") || "nuvem"; } catch (e) { }
+const LOCAL = modoServidor === "local";
+document.getElementById("modoServidor").value = modoServidor;
+
+function trocarServidor(modo) {
+  try { localStorage.setItem("servidor", modo); } catch (e) { }
+  location.reload();
+}
 const API = {
   filmes:  LOCAL ? "http://localhost:8081" : "https://cinema-filmes-dvcg.onrender.com",
   sessoes: LOCAL ? "http://localhost:8082" : "https://cinema-sessoes-pq81.onrender.com",
@@ -237,7 +255,9 @@ async function chamar(url, metodo = "GET", corpo = null) {
   try {
     resposta = await fetch(url, opcoes);
   } catch (e) {
-    throw new Error("Não foi possível conectar em " + url + " (o serviço está rodando?)");
+    throw new Error(LOCAL
+      ? "Não foi possível conectar em " + url + ". O serviço está rodando no computador? Se não estiver, troque \"Servidores\" para Nuvem no topo."
+      : "Não foi possível conectar em " + url + ". Na nuvem o serviço pode estar acordando: espere uns 50 segundos e tente de novo.");
   }
   if (resposta.status === 204) return null;
   const dados = await resposta.json().catch(() => null);
@@ -255,14 +275,31 @@ function aviso(texto, erro = false) {
   m.className = erro ? "erro" : "ok";
 }
 
-function mostrar(id) {
+// ======================= NAVEGAÇÃO ENTRE ABAS =======================
+// Cada aba tem o seu endereço: index.html#filmes, #sessoes, #assentos/3 (assentos da sessão 3)...
+// Assim o link muda ao trocar de aba, o botão "voltar" do navegador funciona
+// e dá para recarregar a página ou mandar o link de uma aba específica.
+function irPara(id) {
+  if (location.hash === "#" + id) rota(); else location.hash = id;
+}
+
+function rota() {
+  const [id, extra] = decodeURIComponent(location.hash.slice(1)).split("/");
+  const secao = document.getElementById(id);
+  mostrar(secao && secao.tagName === "SECTION" ? id : "filmes", extra);
+}
+window.addEventListener("hashchange", rota);
+
+function mostrar(id, extra) {
   document.querySelectorAll("section").forEach(s => s.classList.remove("ativa"));
   document.getElementById(id).classList.add("ativa");
+  document.querySelectorAll("nav button").forEach(b =>
+    b.classList.toggle("atual", b.getAttribute("onclick") === "irPara('" + id + "')"));
   aviso("");
   if (id === "filmes") listarFilmes();
   if (id === "cinemas") carregarCinemasESalas();
   if (id === "sessoes") { carregarSelectsSessao(); listarSessoes(); }
-  if (id === "assentos") carregarSelectAssentos();
+  if (id === "assentos") carregarSelectAssentos(extra);
   if (id === "fidelidade" && login) { document.getElementById("fidUsuario").value = login.usuario.id; verPontos(); }
 }
 
@@ -439,14 +476,13 @@ async function carregarSelectAssentos(idEscolhido) {
 }
 
 function abrirAssentos(id) {
-  document.querySelectorAll("section").forEach(s => s.classList.remove("ativa"));
-  document.getElementById("assentos").classList.add("ativa");
-  carregarSelectAssentos(id);
+  location.hash = "assentos/" + id;
 }
 
 async function verAssentos() {
   const id = v("assentoSessao");
   if (!id) return;
+  history.replaceState(null, "", "#assentos/" + id); // o link mostra qual sessão está aberta
   try {
     const a = await chamar(API.sessoes + "/sessoes/" + id + "/assentos");
     selecionados = new Set();
@@ -611,7 +647,7 @@ async function usarPontos() {
 }
 
 guardarLogin(login);
-mostrar("filmes");
+rota();
 </script>
 </body>
 </html>
