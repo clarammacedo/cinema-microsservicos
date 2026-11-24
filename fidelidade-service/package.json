@@ -1,0 +1,14 @@
+{
+  "name": "fidelidade-service",
+  "version": "1.0.0",
+  "description": "Microsserviço de Fidelidade da rede de cinemas (consumidor do Serviço de Usuários)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "author": "Amanda Maria",
+  "license": "MIT"
+}
