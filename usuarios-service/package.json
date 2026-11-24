@@ -1,0 +1,14 @@
+{
+  "name": "usuarios-service",
+  "version": "1.0.0",
+  "description": "Microsserviço de Usuários da rede de cinemas (provedor)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "author": "Amanda Maria",
+  "license": "MIT"
+}
