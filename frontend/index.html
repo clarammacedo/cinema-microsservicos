@@ -153,8 +153,9 @@
 // ======================================================================
 const LOCAL = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 const API = {
-  filmes:  LOCAL ? "http://localhost:8081" : "https://SEU-filmes-service.onrender.com",
-  sessoes: LOCAL ? "http://localhost:8082" : "https://SEU-sessoes-service.onrender.com",
+const API = {
+  filmes:  LOCAL ? "http://localhost:8081" : "https://cinema-filmes-dvcg.onrender.com",
+  sessoes: LOCAL ? "http://localhost:8082" : "https://cinema-sessoes-pq81.onrender.com",
   // pedidos, pagamentos (Edson - Python) e fidelidade, usuarios (Amanda - JavaScript) entram aqui
 };
 
