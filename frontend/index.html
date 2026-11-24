@@ -42,7 +42,10 @@
   <button onclick="mostrar('cinemas')">Cinemas e salas</button>
   <button onclick="mostrar('sessoes')">Sessões</button>
   <button onclick="mostrar('assentos')">Assentos</button>
-  <!-- Amanda e Edson: adicionem aqui os botões de Pedidos, Pagamentos, Fidelidade e Usuários -->
+  <button onclick="mostrar('usuarios')">Usuários</button>
+  <button onclick="mostrar('fidelidade')">Fidelidade</button>
+  <!-- Edson: adicione aqui os botões de Pedidos e Pagamentos -->
+  <span id="statusLogin" style="float:right"></span>
 </nav>
 
 <div id="mensagem"></div>
@@ -144,6 +147,67 @@
   </p>
 </section>
 
+<!-- ================== USUÁRIOS (Amanda - JavaScript) ================== -->
+<section id="usuarios">
+  <h2>Usuários <small>(Serviço de Usuários - JavaScript/Node.js)</small></h2>
+  <fieldset>
+    <legend>Cadastrar usuário</legend>
+    <label>Nome <input id="cadNome" size="25"></label>
+    <label>Email <input id="cadEmail" type="email" size="25"></label>
+    <label>Senha <input id="cadSenha" type="password" size="12"></label><br>
+    <label>Telefone <input id="cadTelefone" placeholder="85999990000"></label>
+    <label>Nascimento <input id="cadNascimento" type="date"></label>
+    <button onclick="cadastrarUsuario()">Cadastrar</button>
+  </fieldset>
+  <fieldset>
+    <legend>Login / logout</legend>
+    <label>Email <input id="loginEmail" type="email" value="cliente@cinema.com" size="25"></label>
+    <label>Senha <input id="loginSenha" type="password" value="123456" size="12"></label>
+    <button onclick="fazerLogin()">Entrar</button>
+    <button onclick="fazerLogout()">Sair</button>
+  </fieldset>
+  <fieldset>
+    <legend>Meus dados <small>(precisa estar logado)</small></legend>
+    <button onclick="consultarMeusDados()">Consultar dados</button><br>
+    <label>Nome <input id="meuNome" size="25"></label>
+    <label>Email <input id="meuEmail" type="email" size="25"></label>
+    <label>Telefone <input id="meuTelefone"></label>
+    <label>Nascimento <input id="meuNascimento" type="date"></label><br>
+    <label>Senha atual <input id="minhaSenhaAtual" type="password" size="12"></label>
+    <label>Nova senha <input id="minhaNovaSenha" type="password" size="12"></label>
+    <small>(deixe em branco para não trocar)</small><br>
+    <button onclick="atualizarMeusDados()">Atualizar cadastro</button>
+  </fieldset>
+  <pre id="dadosUsuario" style="background:#f7f7f7;padding:8px"></pre>
+</section>
+
+<!-- ================== FIDELIDADE (Amanda - JavaScript) ================== -->
+<section id="fidelidade">
+  <h2>Programa de fidelidade <small>(Serviço de Fidelidade, que consulta o Serviço de Usuários)</small></h2>
+  <p><small>Regras: cada R$ 1,00 gasto vale 1 ponto · cada ponto vale R$ 0,10 de desconto (100 pontos = R$ 10,00).</small></p>
+  <label>Id do usuário <input id="fidUsuario" type="number" min="1" style="width:70px"></label>
+  <small>(preenchido sozinho com o usuário logado)</small><br>
+  <button onclick="aderirFidelidade()">Aderir ao programa</button>
+  <button onclick="verPontos()">Ver pontos</button>
+  <h3 id="saldoPontos"></h3>
+  <fieldset>
+    <legend>Acumular pontos <small>(na prática é o Serviço de Pedidos que chama; aqui é para testar)</small></legend>
+    <label>Id do pedido <input id="fidPedido" value="PED-1" size="10"></label>
+    <label>Valor da compra (R$) <input id="fidValor" type="number" step="0.01" min="1" value="60.00" style="width:80px"></label>
+    <button onclick="acumularPontos()">Acumular</button>
+  </fieldset>
+  <fieldset>
+    <legend>Usar pontos</legend>
+    <label>Pontos <input id="fidPontosUsar" type="number" min="1" value="100" style="width:80px"></label>
+    <label>Id do pedido (opcional) <input id="fidPedidoUso" size="10"></label>
+    <button onclick="usarPontos()">Usar pontos</button>
+  </fieldset>
+  <table>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Pontos</th><th>Pedido</th><th>Descrição</th></tr></thead>
+    <tbody id="tabelaExtrato"></tbody>
+  </table>
+</section>
+
 </main>
 
 <script>
@@ -155,12 +219,19 @@ const LOCAL = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 const API = {
   filmes:  LOCAL ? "http://localhost:8081" : "https://cinema-filmes-dvcg.onrender.com",
   sessoes: LOCAL ? "http://localhost:8082" : "https://cinema-sessoes-pq81.onrender.com",
-  // pedidos, pagamentos (Edson - Python) e fidelidade, usuarios (Amanda - JavaScript) entram aqui
+  usuarios:   LOCAL ? "http://localhost:8085" : "https://SEU-usuarios-service.onrender.com",
+  fidelidade: LOCAL ? "http://localhost:8086" : "https://SEU-fidelidade-service.onrender.com",
+  // pedidos e pagamentos (Edson - Python) entram aqui
 };
+
+// Login (Serviço de Usuários): o token vai no cabeçalho Authorization das rotas protegidas
+let login = null; // { token, usuario }
+try { login = JSON.parse(localStorage.getItem("login")); } catch (e) { login = null; }
 
 // Função que faz as chamadas HTTP (fetch) e trata erros
 async function chamar(url, metodo = "GET", corpo = null) {
   const opcoes = { method: metodo, headers: { "Content-Type": "application/json" } };
+  if (login && url.startsWith(API.usuarios)) opcoes.headers.Authorization = "Bearer " + login.token;
   if (corpo) opcoes.body = JSON.stringify(corpo);
   let resposta;
   try {
@@ -192,6 +263,7 @@ function mostrar(id) {
   if (id === "cinemas") carregarCinemasESalas();
   if (id === "sessoes") { carregarSelectsSessao(); listarSessoes(); }
   if (id === "assentos") carregarSelectAssentos();
+  if (id === "fidelidade" && login) { document.getElementById("fidUsuario").value = login.usuario.id; verPontos(); }
 }
 
 const v = id => document.getElementById(id).value;
@@ -419,6 +491,126 @@ async function liberarTeste() {
   } catch (e) { aviso(e.message, true); }
 }
 
+// ======================= USUÁRIOS (Amanda) =======================
+function guardarLogin(novo) {
+  login = novo;
+  try {
+    if (novo) localStorage.setItem("login", JSON.stringify(novo));
+    else localStorage.removeItem("login");
+  } catch (e) { /* navegador sem localStorage: o login fica só na memória */ }
+  document.getElementById("statusLogin").textContent =
+    login ? "Logado: " + login.usuario.nome + " (id " + login.usuario.id + ")" : "Não logado";
+}
+
+async function cadastrarUsuario() {
+  try {
+    const u = await chamar(API.usuarios + "/usuarios", "POST", {
+      nome: v("cadNome"), email: v("cadEmail"), senha: v("cadSenha"),
+      telefone: v("cadTelefone") || null, dataNascimento: v("cadNascimento") || null
+    });
+    aviso("Usuário cadastrado com id " + u.id + ". Agora faça login.");
+    document.getElementById("loginEmail").value = u.email;
+    document.getElementById("loginSenha").value = "";
+    document.getElementById("dadosUsuario").textContent = JSON.stringify(u, null, 2);
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function fazerLogin() {
+  try {
+    guardarLogin(null);
+    const r = await chamar(API.usuarios + "/login", "POST", { email: v("loginEmail"), senha: v("loginSenha") });
+    guardarLogin({ token: r.token, usuario: r.usuario });
+    aviso("Bem-vindo(a), " + r.usuario.nome + "!");
+    consultarMeusDados();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function fazerLogout() {
+  if (!login) { aviso("Você não está logado", true); return; }
+  try {
+    await chamar(API.usuarios + "/logout", "POST");
+    aviso("Logout realizado");
+  } catch (e) { aviso(e.message, true); }
+  guardarLogin(null);
+  document.getElementById("dadosUsuario").textContent = "";
+}
+
+async function consultarMeusDados() {
+  try {
+    const u = await chamar(API.usuarios + "/usuarios/me");
+    document.getElementById("meuNome").value = u.nome;
+    document.getElementById("meuEmail").value = u.email;
+    document.getElementById("meuTelefone").value = u.telefone || "";
+    document.getElementById("meuNascimento").value = u.dataNascimento || "";
+    document.getElementById("dadosUsuario").textContent = JSON.stringify(u, null, 2);
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function atualizarMeusDados() {
+  const dados = {
+    nome: v("meuNome"), email: v("meuEmail"),
+    telefone: v("meuTelefone") || null, dataNascimento: v("meuNascimento") || null
+  };
+  if (v("minhaNovaSenha")) { dados.novaSenha = v("minhaNovaSenha"); dados.senhaAtual = v("minhaSenhaAtual"); }
+  try {
+    const u = await chamar(API.usuarios + "/usuarios/me", "PUT", dados);
+    guardarLogin({ token: login.token, usuario: u });
+    document.getElementById("minhaSenhaAtual").value = "";
+    document.getElementById("minhaNovaSenha").value = "";
+    document.getElementById("dadosUsuario").textContent = JSON.stringify(u, null, 2);
+    aviso("Cadastro atualizado!");
+  } catch (e) { aviso(e.message, true); }
+}
+
+// ======================= FIDELIDADE (Amanda) =======================
+const reais = n => "R$ " + Number(n).toFixed(2).replace(".", ",");
+
+async function aderirFidelidade() {
+  try {
+    // O Serviço de Fidelidade chama o Serviço de Usuários para confirmar que o usuário existe
+    const c = await chamar(API.fidelidade + "/fidelidade", "POST", { usuarioId: Number(v("fidUsuario")) || null });
+    aviso(c.nomeUsuario + " aderiu ao programa de fidelidade!");
+    verPontos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function verPontos() {
+  const id = v("fidUsuario");
+  if (!id) { aviso("Informe o id do usuário (ou faça login)", true); return; }
+  try {
+    const c = await chamar(API.fidelidade + "/fidelidade/" + id);
+    document.getElementById("saldoPontos").textContent =
+      c.nomeUsuario + ": " + c.pontos + " pontos (vale " + reais(c.valorEmReais) + " de desconto)";
+    const extrato = await chamar(API.fidelidade + "/fidelidade/" + id + "/extrato");
+    document.getElementById("tabelaExtrato").innerHTML = extrato.map(m => `
+      <tr><td>${dataBR(m.data)}</td><td>${m.tipo === "ACUMULO" ? "Acúmulo" : "Uso"}</td>
+          <td>${m.tipo === "ACUMULO" ? "+" : "-"}${m.pontos}</td><td>${esc(m.pedidoId || "-")}</td><td>${esc(m.descricao)}</td></tr>`).join("");
+  } catch (e) {
+    document.getElementById("saldoPontos").textContent = "";
+    document.getElementById("tabelaExtrato").innerHTML = "";
+    aviso(e.message, true);
+  }
+}
+
+async function acumularPontos() {
+  try {
+    const r = await chamar(API.fidelidade + "/fidelidade/" + v("fidUsuario") + "/acumular", "POST",
+      { pedidoId: v("fidPedido"), valor: Number(v("fidValor")) });
+    aviso("+" + r.pontosGanhos + " pontos! Saldo: " + r.pontos);
+    verPontos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function usarPontos() {
+  try {
+    const r = await chamar(API.fidelidade + "/fidelidade/" + v("fidUsuario") + "/usar", "POST",
+      { pontos: Number(v("fidPontosUsar")), pedidoId: v("fidPedidoUso") || null });
+    aviso(r.pontosUsados + " pontos usados = " + reais(r.valorDesconto) + " de desconto. Saldo: " + r.pontos);
+    verPontos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+guardarLogin(login);
 mostrar("filmes");
 </script>
 </body>
