@@ -44,7 +44,8 @@
   <button onclick="mostrar('assentos')">Assentos</button>
   <button onclick="mostrar('usuarios')">Usuários</button>
   <button onclick="mostrar('fidelidade')">Fidelidade</button>
-  <!-- Edson: adicione aqui os botões de Pedidos e Pagamentos -->
+  <button onclick="mostrar('pedidos')">Pedidos</button>
+  <button onclick="mostrar('pagamentos')">Pagamentos</button>
   <span id="statusLogin" style="float:right"></span>
 </nav>
 
@@ -208,6 +209,82 @@
   </table>
 </section>
 
+<!-- ================== PEDIDOS (Edson - Python) ================== -->
+<section id="pedidos">
+  <h2>Pedidos <small>(Serviço de Pedidos - Python, que consulta Usuários, Sessões e Fidelidade)</small></h2>
+  <fieldset>
+    <legend>Realizar pedido</legend>
+    <label>Id do usuário <input id="pedUsuario" type="number" min="1" style="width:70px"></label>
+    <small>(preenchido sozinho com o usuário logado)</small><br>
+    <label>Sessão <select id="pedSessao" onchange="mapaPedido()"></select></label>
+    <p id="resumoPedidoAssentos"></p>
+    <div class="tela">TELA</div>
+    <div id="mapaPedido"></div>
+    <p><small>Clique nos assentos verdes para escolher.</small></p>
+    <label>Quantos são meia-entrada? <input id="pedMeias" type="number" min="0" value="0" style="width:60px"></label>
+    <label>Usar pontos de fidelidade <input id="pedPontos" type="number" min="0" value="0" style="width:80px"></label>
+    <small>(1 ponto = R$ 0,10; no máximo 50% do pedido)</small><br>
+    <button onclick="realizarPedido()">Realizar pedido</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Meus pedidos</legend>
+    <button onclick="listarPedidos()">Listar pedidos do usuário</button>
+    <table>
+      <thead><tr><th>Id</th><th>Filme / sessão</th><th>Ingressos</th><th>Total</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tabelaPedidos"></tbody>
+    </table>
+    <pre id="detalhesPedido" style="background:#f7f7f7;padding:8px"></pre>
+  </fieldset>
+
+  <fieldset>
+    <legend>Validar ingresso <small>(na entrada da sala)</small></legend>
+    <label>Código do ingresso <input id="codigoIngresso" placeholder="ING-XXXXXXXX" size="16"></label>
+    <button onclick="validarIngresso()">Validar</button>
+  </fieldset>
+</section>
+
+<!-- ================== PAGAMENTOS (Edson - Python) ================== -->
+<section id="pagamentos">
+  <h2>Pagamentos <small>(Serviço de Pagamentos - Python, que consulta Pedidos e Fidelidade)</small></h2>
+  <label>Id do pedido <input id="pagPedido" type="number" min="1" style="width:70px"></label>
+  <small>(use o botão "Pagar" na aba Pedidos para preencher)</small>
+  <p id="resumoPagPedido"></p>
+
+  <fieldset>
+    <legend>Pagar com Pix</legend>
+    <button onclick="gerarPix()">Gerar QR Code</button>
+    <div id="areaPix" style="display:none">
+      <p>Código Pix copia e cola: <code id="pixCodigo"></code><br>
+         <small id="pixValidade"></small></p>
+      <button onclick="confirmarPix()">Simular: o banco confirmou o Pix</button>
+      <input type="hidden" id="pixPagamentoId">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Pagar com cartão</legend>
+    <label>Nome do titular <input id="cartNome" size="22"></label>
+    <label>Número <input id="cartNumero" size="22" value="4111 1111 1111 1111"></label><br>
+    <label>Validade <input id="cartValidade" placeholder="MM/AA" value="12/28" size="6"></label>
+    <label>CVV <input id="cartCvv" value="123" size="4"></label>
+    <label>Parcelas <select id="cartParcelas"><option>1</option><option>2</option><option>3</option></select></label>
+    <button onclick="pagarCartao()">Pagar</button><br>
+    <small>Cartões de teste: 4111 1111 1111 1111 (Visa) e 5555 5555 5555 4444 (Mastercard) são aprovados;
+      4000 0000 0000 0002 é recusado pela operadora.</small>
+  </fieldset>
+
+  <label>Filtrar por status
+    <select id="filtroStatusPag"><option value="">Todos</option><option>PENDENTE</option><option>CONFIRMADO</option>
+      <option>RECUSADO</option><option>ESTORNADO</option></select>
+  </label>
+  <button onclick="listarPagamentos()">Listar pagamentos do usuário</button>
+  <table>
+    <thead><tr><th>Id</th><th>Pedido</th><th>Forma</th><th>Valor</th><th>Status</th><th>Pontos ganhos</th><th>Data</th><th></th></tr></thead>
+    <tbody id="tabelaPagamentos"></tbody>
+  </table>
+</section>
+
 </main>
 
 <script>
@@ -219,9 +296,10 @@ const LOCAL = ["localhost", "127.0.0.1", ""].includes(location.hostname);
 const API = {
   filmes:  LOCAL ? "http://localhost:8081" : "https://cinema-filmes-dvcg.onrender.com",
   sessoes: LOCAL ? "http://localhost:8082" : "https://cinema-sessoes-pq81.onrender.com",
-  usuarios:   LOCAL ? "http://localhost:8085" : "https://cinema-usuario.onrender.com",
-  fidelidade: LOCAL ? "http://localhost:8086" : "https://cinema-fidelidade.onrender.com",
-  // pedidos e pagamentos (Edson - Python) entram aqui
+  usuarios:   LOCAL ? "http://localhost:8085" : "https://SEU-usuarios-service.onrender.com",
+  fidelidade: LOCAL ? "http://localhost:8086" : "https://SEU-fidelidade-service.onrender.com",
+  pedidos:    LOCAL ? "http://localhost:8083" : "https://SEU-pedidos-service.onrender.com",
+  pagamentos: LOCAL ? "http://localhost:8084" : "https://SEU-pagamentos-service.onrender.com",
 };
 
 // Login (Serviço de Usuários): o token vai no cabeçalho Authorization das rotas protegidas
@@ -264,6 +342,8 @@ function mostrar(id) {
   if (id === "sessoes") { carregarSelectsSessao(); listarSessoes(); }
   if (id === "assentos") carregarSelectAssentos();
   if (id === "fidelidade" && login) { document.getElementById("fidUsuario").value = login.usuario.id; verPontos(); }
+  if (id === "pedidos") abrirPedidos();
+  if (id === "pagamentos") abrirPagamentos();
 }
 
 const v = id => document.getElementById(id).value;
@@ -607,6 +687,211 @@ async function usarPontos() {
       { pontos: Number(v("fidPontosUsar")), pedidoId: v("fidPedidoUso") || null });
     aviso(r.pontosUsados + " pontos usados = " + reais(r.valorDesconto) + " de desconto. Saldo: " + r.pontos);
     verPontos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+// ======================= PEDIDOS (Edson) =======================
+let assentosPedido = new Set();
+const usuarioAtual = id => v(id) || (login ? login.usuario.id : "");
+
+async function abrirPedidos() {
+  if (login) document.getElementById("pedUsuario").value = login.usuario.id;
+  try {
+    // As sessões vêm do Serviço de Sessões (Java)
+    const sessoes = await chamar(API.sessoes + "/sessoes");
+    const futuras = sessoes.filter(s => new Date(s.dataHora) > new Date());
+    document.getElementById("pedSessao").innerHTML = futuras.map(s =>
+      `<option value="${s.id}">#${s.id} - ${esc(s.tituloFilme)} - ${dataBR(s.dataHora)} - ${esc(s.sala.cinema.nome)} Sala ${s.sala.numero} - ${reais(s.preco)}</option>`).join("");
+    if (futuras.length) mapaPedido(); else document.getElementById("mapaPedido").innerHTML = "Nenhuma sessão futura cadastrada.";
+  } catch (e) { aviso(e.message, true); }
+  if (usuarioAtual("pedUsuario")) listarPedidos();
+}
+
+async function mapaPedido() {
+  const id = v("pedSessao");
+  if (!id) return;
+  try {
+    const a = await chamar(API.sessoes + "/sessoes/" + id + "/assentos");
+    assentosPedido = new Set();
+    document.getElementById("resumoPedidoAssentos").textContent = a.totalLivres + " livres de " + a.capacidade + " lugares";
+    const ocupados = new Set(a.ocupados);
+    let html = "";
+    for (let f = 0; f < a.fileiras; f++) {
+      const letra = String.fromCharCode(65 + f);
+      html += `<div class="fileira"><b style="display:inline-block;width:20px">${letra}</b>`;
+      for (let n = 1; n <= a.assentosPorFileira; n++) {
+        const cod = letra + n, oc = ocupados.has(cod);
+        html += `<button class="assento ${oc ? "ocupado" : ""}" ${oc ? "disabled" : ""} onclick="alternarPedido(this,'${cod}')">${cod}</button>`;
+      }
+      html += "</div>";
+    }
+    document.getElementById("mapaPedido").innerHTML = html;
+  } catch (e) { aviso(e.message, true); }
+}
+
+function alternarPedido(botao, cod) {
+  if (assentosPedido.has(cod)) { assentosPedido.delete(cod); botao.classList.remove("selecionado"); }
+  else { assentosPedido.add(cod); botao.classList.add("selecionado"); }
+}
+
+async function realizarPedido() {
+  if (assentosPedido.size === 0) { aviso("Escolha pelo menos um assento no mapa", true); return; }
+  const meias = Number(v("pedMeias")) || 0;
+  if (meias > assentosPedido.size) { aviso("Há mais meias-entradas do que assentos escolhidos", true); return; }
+  // Os primeiros N assentos escolhidos viram meia-entrada
+  const ingressos = [...assentosPedido].map((assento, i) => ({ assento, tipo: i < meias ? "MEIA" : "INTEIRA" }));
+  try {
+    const p = await chamar(API.pedidos + "/pedidos", "POST", {
+      usuarioId: Number(usuarioAtual("pedUsuario")) || null,
+      sessaoId: Number(v("pedSessao")) || null,
+      pontos: Number(v("pedPontos")) || 0,
+      ingressos
+    });
+    aviso("Pedido " + p.id + " realizado: " + reais(p.valorTotal) + (p.desconto ? " (desconto de " + reais(p.desconto) + ")" : "") + ". Agora faça o pagamento.");
+    document.getElementById("detalhesPedido").textContent = JSON.stringify(p, null, 2);
+    document.getElementById("pedMeias").value = 0;
+    document.getElementById("pedPontos").value = 0;
+    mapaPedido();
+    listarPedidos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function listarPedidos() {
+  const usuario = usuarioAtual("pedUsuario");
+  if (!usuario) { aviso("Informe o id do usuário (ou faça login)", true); return; }
+  try {
+    const pedidos = await chamar(API.pedidos + "/pedidos?usuarioId=" + usuario);
+    document.getElementById("tabelaPedidos").innerHTML = pedidos.map(p => `
+      <tr>
+        <td>${p.id}</td>
+        <td>${esc(p.tituloFilme)}<br><small>${dataBR(p.dataHoraSessao)} · ${esc(p.localSessao)}</small></td>
+        <td>${p.ingressos.map(i => `${i.assento} ${i.tipo === "MEIA" ? "(meia)" : ""} <small>${i.codigo}${i.utilizadoEm ? " ✔ usado" : ""}</small>`).join("<br>")}</td>
+        <td>${reais(p.valorTotal)}${p.desconto ? `<br><small>-${reais(p.desconto)} em pontos</small>` : ""}</td>
+        <td>${p.status}</td>
+        <td><button onclick="detalhesPedido(${p.id})">Detalhes</button>
+          ${p.status === "ABERTO" ? `<button onclick="irParaPagamento(${p.id})">Pagar</button>
+                                     <button onclick="cancelarPedido(${p.id})">Cancelar</button>` : ""}</td>
+      </tr>`).join("");
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function detalhesPedido(id) {
+  try {
+    const p = await chamar(API.pedidos + "/pedidos/" + id);
+    document.getElementById("detalhesPedido").textContent = JSON.stringify(p, null, 2);
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function cancelarPedido(id) {
+  try {
+    // O Serviço de Pedidos chama o Serviço de Sessões para liberar os assentos
+    await chamar(API.pedidos + "/pedidos/" + id + "/cancelar", "POST");
+    aviso("Pedido " + id + " cancelado e assentos liberados");
+    listarPedidos();
+    mapaPedido();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function validarIngresso() {
+  try {
+    const r = await chamar(API.pedidos + "/ingressos/" + encodeURIComponent(v("codigoIngresso").trim()) + "/validar", "POST");
+    aviso("✔ " + r.mensagem + " · " + r.tituloFilme + " · " + dataBR(r.dataHoraSessao) + " · " + r.localSessao);
+    if (usuarioAtual("pedUsuario")) listarPedidos();
+  } catch (e) { aviso("✘ " + e.message, true); }
+}
+
+function irParaPagamento(pedidoId) {
+  mostrar("pagamentos");
+  document.getElementById("pagPedido").value = pedidoId;
+  resumoPedidoParaPagar();
+}
+
+// ======================= PAGAMENTOS (Edson) =======================
+async function abrirPagamentos() {
+  document.getElementById("areaPix").style.display = "none";
+  if (login) {
+    document.getElementById("cartNome").value = document.getElementById("cartNome").value || login.usuario.nome.toUpperCase();
+    listarPagamentos();
+  }
+}
+
+async function resumoPedidoParaPagar() {
+  try {
+    const p = await chamar(API.pedidos + "/pedidos/" + v("pagPedido"));
+    document.getElementById("resumoPagPedido").textContent =
+      "Pedido " + p.id + ": " + p.tituloFilme + " · " + p.ingressos.length + " ingresso(s) · total " + reais(p.valorTotal) + " · " + p.status;
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function gerarPix() {
+  try {
+    // O Serviço de Pagamentos consulta o Serviço de Pedidos para saber o valor
+    const pg = await chamar(API.pagamentos + "/pagamentos/pix", "POST", { pedidoId: Number(v("pagPedido")) || null });
+    document.getElementById("areaPix").style.display = "block";
+    document.getElementById("pixCodigo").textContent = pg.pix.qrCode;
+    document.getElementById("pixValidade").textContent = "Valor " + reais(pg.valor) + " · válido até " + dataBR(pg.pix.expiraEm);
+    document.getElementById("pixPagamentoId").value = pg.id;
+    aviso("Pix gerado (pagamento " + pg.id + "). Aguardando o pagamento...");
+    listarPagamentos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function confirmarPix(id) {
+  id = id || v("pixPagamentoId");
+  try {
+    const pg = await chamar(API.pagamentos + "/pagamentos/" + id + "/confirmar", "POST");
+    aviso("Pix confirmado! Pedido " + pg.pedidoId + " pago" + (pg.pontosGanhos ? " · +" + pg.pontosGanhos + " pontos de fidelidade" : ""));
+    document.getElementById("areaPix").style.display = "none";
+    if (v("pagPedido")) resumoPedidoParaPagar();
+    listarPagamentos();
+  } catch (e) { aviso(e.message, true); listarPagamentos(); }
+}
+
+async function pagarCartao() {
+  try {
+    const pg = await chamar(API.pagamentos + "/pagamentos/cartao", "POST", {
+      pedidoId: Number(v("pagPedido")) || null,
+      nomeTitular: v("cartNome"), numeroCartao: v("cartNumero"),
+      validade: v("cartValidade"), cvv: v("cartCvv"), parcelas: Number(v("cartParcelas"))
+    });
+    if (pg.status === "CONFIRMADO") {
+      aviso("Pagamento aprovado (" + pg.cartao.bandeira + " final " + pg.cartao.final + ", " + pg.cartao.parcelas + "x de " +
+            reais(pg.cartao.valorParcela) + ")" + (pg.pontosGanhos ? " · +" + pg.pontosGanhos + " pontos de fidelidade" : ""));
+    } else {
+      aviso("Pagamento " + pg.status + ": " + pg.motivo, true);
+    }
+    resumoPedidoParaPagar();
+    listarPagamentos();
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function listarPagamentos() {
+  const usuario = login ? login.usuario.id : v("pedUsuario");
+  let url = API.pagamentos + "/pagamentos?";
+  if (usuario) url += "usuarioId=" + usuario + "&";
+  if (v("filtroStatusPag")) url += "status=" + v("filtroStatusPag");
+  try {
+    const lista = await chamar(url);
+    document.getElementById("tabelaPagamentos").innerHTML = lista.map(pg => `
+      <tr>
+        <td>${pg.id}</td><td>${pg.pedidoId}</td>
+        <td>${pg.metodo === "PIX" ? "Pix" : esc(pg.cartao.bandeira) + " final " + pg.cartao.final + " (" + pg.cartao.parcelas + "x)"}</td>
+        <td>${reais(pg.valor)}</td>
+        <td>${pg.status}${pg.motivo ? `<br><small>${esc(pg.motivo)}</small>` : ""}</td>
+        <td>${pg.pontosGanhos}</td>
+        <td>${dataBR(pg.dataPagamento || pg.dataCriacao)}</td>
+        <td>${pg.status === "PENDENTE" ? `<button onclick="confirmarPix(${pg.id})">Confirmar Pix</button>` : ""}
+            ${pg.status === "CONFIRMADO" ? `<button onclick="estornar(${pg.id})">Estornar</button>` : ""}</td>
+      </tr>`).join("");
+  } catch (e) { aviso(e.message, true); }
+}
+
+async function estornar(id) {
+  try {
+    // O Serviço de Pagamentos pede ao Serviço de Pedidos para cancelar o pedido (que libera os assentos)
+    const pg = await chamar(API.pagamentos + "/pagamentos/" + id + "/estornar", "POST");
+    aviso("Pagamento " + id + " estornado: " + reais(pg.valor) + " devolvidos e pedido " + pg.pedidoId + " cancelado");
+    listarPagamentos();
   } catch (e) { aviso(e.message, true); }
 }
 
